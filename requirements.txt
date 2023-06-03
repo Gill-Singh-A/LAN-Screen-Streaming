@@ -1,0 +1,5 @@
+sockets
+pyautogui
+opencv-python
+datetime
+colorama
