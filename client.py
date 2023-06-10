@@ -1,4 +1,4 @@
-import socket, cv2, json, pyautogui, numpy
+import socket, cv2, pyautogui, numpy, pickle
 from datetime import date
 from optparse import OptionParser
 from colorama import Fore, Back, Style
@@ -40,16 +40,16 @@ class Client:
         else:
             return 0
     def send(self, data):
-        serealized_data = json.dumps(data)
-        self.socket.send(serealized_data.encode())
+        serealized_data = pickle.dumps(data)
+        self.socket.send(serealized_data)
     def receive(self):
         data = b""
         while True:
             try:
                 data += self.socket.recv(self.buffer_size)
-                data = json.loads(data)
+                data = pickle.loads(data)
                 break
-            except ValueError:
+            except pickle.UnpicklingError:
                 pass
         return data
     def disconnect(self):
@@ -78,12 +78,8 @@ if __name__ == "__main__":
     display(':', "Sending Live Screen Stream")
     status = ""
     while status != "0":
-        frame = numpy.array(pyautogui.screenshot())
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        send_str = ""
-        for row in frame:
-            send_str += f"{':'.join([str(item) for item in row])};"
-        client.send(send_str[:-1])
+        frame = cv2.cvtColor(numpy.array(pyautogui.screenshot()), cv2.COLOR_RGB2BGR)
+        client.send(frame)
         status = client.receive()
     else:
         display('*', "Exit Message received")
