@@ -6,10 +6,9 @@ Language Used = Python3<br />
 Modules/Packages used:
 * socket
 * cv2
-* numpy
 * pyautogui
-* json
 * sys
+* pickle
 * datetime
 * time
 * colorama
