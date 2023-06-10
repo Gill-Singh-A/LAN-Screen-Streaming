@@ -1,8 +1,8 @@
-import socket, cv2, numpy, json, threading
+import socket, cv2, threading, pickle
 from datetime import date
 from optparse import OptionParser
-from time import strftime, localtime
 from colorama import Fore, Back, Style
+from time import strftime, localtime, time
 
 status_color = {
     '+': Fore.GREEN,
@@ -17,8 +17,8 @@ PORT = 2626
 BUFFER_SIZE = 1024
 TIMEOUT = 1
 
-def display(status, data):
-    print(f"{status_color[status]}[{status}] {Fore.BLUE}[{date.today()} {strftime('%H:%M:%S', localtime())}] {status_color[status]}{Style.BRIGHT}{data}{Fore.RESET}{Style.RESET_ALL}")
+def display(status, data, start='', end='\n'):
+    print(f"{start}{status_color[status]}[{status}] {Fore.BLUE}[{date.today()} {strftime('%H:%M:%S', localtime())}] {status_color[status]}{Style.BRIGHT}{data}{Fore.RESET}{Style.RESET_ALL}", end=end)
 
 def get_arguments(*args):
     parser = OptionParser()
@@ -62,16 +62,16 @@ class Server:
             self.acceptClientThread.join()
             self.acceptClientThread = threading.Thread(target=self.acceptClient, daemon=True)
     def send(self, client_address, data):
-        serealized_data = json.dumps(data)
-        self.clients[client_address].send(serealized_data.encode())
+        serealized_data = pickle.dumps(data)
+        self.clients[client_address].send(serealized_data)
     def receive(self, client_address):
         data = b""
         while True:
             try:
                 data += self.clients[client_address].recv(self.buffer_size)
-                data = json.loads(data)
+                data = pickle.loads(data)
                 break
-            except ValueError:
+            except pickle.UnpicklingError:
                 pass
         return data
     def close(self):
@@ -109,23 +109,16 @@ if __name__ == "__main__":
     client_address = list(server.clients.keys())[0]
     display('+', "Starting the Live Screen Stream")
     while cv2.waitKey(1) != 113:
-        data = server.receive(client_address)
-        if data == "0":
-            break
-        data = data.split(';')
-        image = []
-        for row in data:
-            temp = []
-            row = row.split(':')
-            for pixel in row:
-                temp.append(int(pixel))
-            image.append(temp)
-        image = numpy.uint8(numpy.around(image))
+        t1 = time()
+        image = server.receive(client_address)
         cv2.imshow("Screen", image)
+        t2 = time()
+        if t2 != t1:
+            display('*', f"FPS = {Back.MAGENTA}{1/(t2-t1):.2f}{Back.RESET}", start='\r', end='')
         server.send(client_address, "1")
     else:
         server.receive(client_address)
         server.send(client_address, "0")
-        display('*', f"Disconnecting from {Back.MAGENTA}{client_address[0]}:{client_address[1]}{Back.RESET}")
+        display('*', f"Disconnecting from {Back.MAGENTA}{client_address[0]}:{client_address[1]}{Back.RESET}", start='\r')
     server.close()
     display('*', f"Server Closed!")
